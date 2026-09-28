@@ -1,0 +1,52 @@
+# MultiPref (length) on Mistral-7B-Instruct-v0.3 with LoRA: a second 7B to 8B model family next
+# to Llama-3.1-8B. Same data, attribute, readouts and LoRA recipe as configs/multipref_llama8b.yaml;
+# only the model name changes.
+experiment_name: multipref_mistral7b
+output_dir: experiments/multipref_mistral7b
+datasets: [multipref]
+# The shared reference folder is named after the data by default, which would hand this run the
+# 0.5B reference and its cached log-probs. The 7B reference gets its own folder.
+reference_name: multipref_mistral7b
+attribute: length
+length_ratio: 1.5             # as configs/multipref.yaml: 59% cross-group, offline theta 0.99
+seeds: [42, 123, 456]
+
+hf_dataset: allenai/multipref
+heldout_prompt_frac: 0.1
+n_eval_prompts: 300
+
+model: mistralai/Mistral-7B-Instruct-v0.3
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_target: all-linear
+precision: bf16_base_fp32_adapters
+gpu_memory_cap_gb: 24         # measured peak 17.7 to 23.6 GB
+beta: 0.1
+lr: 5.0e-6                    # LoRA calibration: ten times the full fine-tuning rate, not more
+steps: 1000
+sort_by_length: true           # group each update's pairs by length: same pairs and loss, less padding
+                               # (identical in fp32, bf16 rounding only)
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+sft_lr: 1.0e-4                # the reference SFT is LoRA as well: ten times the full fine-tuning 1e-5
+sft_epochs: 1
+
+# Reference, dpo, pooled and shared mean at three seeds; no baselines here.
+methods:
+  reference: {}
+  dpo: {}
+  barp_pooled: {n_bias_params: 1}
+  barp_annotator_mean: {n_bias_params: per_annotator, shared_mean: true}

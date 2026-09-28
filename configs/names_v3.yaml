@@ -1,0 +1,85 @@
+experiment_name: names_v3
+output_dir: experiments/names_v3
+datasets: [names]
+data_dir_name: names_v3       # Signed-UltraFeedback
+attribute: names
+seeds: [42, 123, 456]
+
+# Name pool v2 (src/attributes.py). The token structure of the pool (white-coded names one
+# token, black-coded mostly two or three) is kept on purpose: it is part of the marker rather
+# than a confound, and the permutation null of scripts/analysis/race_drift_permutation.py is
+# the control that separates annotator bias from the name-cluster collapse.
+# sft_resign_random re-signs every SFT answer with a random name, so the reference starts at
+# 50/50 on both attributes.
+name_pool: v2
+sft_resign_random: true
+
+# Planted biases. Attribute order is [woman_coded, black_coded].
+# Both attributes carry the SAME population mean of 1.0, so the same amount of bias is
+# there to be removed; they differ only in how much the classes disagree, by about 8x:
+#   woman_coded  1.2 / 0.8 / 1.0   mean 1.0, class sd 0.16   (near-homogeneous)
+#   black_coded  2.5 / -0.5 / 1.0  mean 1.0, class sd 1.22   (wide, class B opposes)
+annotators_per_class: 20
+theta_sigma: 0.8              # within-class spread; at 0.3 the per-annotator deviations are
+                              # smaller than the noise of ~430 votes each
+classes:
+  - {name: A, mean: [1.2, 2.5]}
+  - {name: B, mean: [0.8, -0.5]}
+  - {name: C, mean: [1.0, 1.0]}
+pair_mix: {quality: 0.4, swap: 0.2, mixed: 0.4}
+quality_unsigned_frac: 0.5
+judgments_per_pair: 4
+n_pairs: 8000
+quality_scale: 0.5
+data_seed: 0
+n_eval_prompts: 300
+n_choice_prompts: 100
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+lora_r: 16
+lora_alpha: 32
+lora_target: all-linear
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 20         # without gradient checkpointing the peak is about 19 GB (12 GB with it)
+beta: 0.1
+lr: 5.0e-7
+steps: 1000
+gradient_checkpointing: false  # identical gradients either way; steps 19-41% faster,
+                               # peak memory about 19 GB instead of 10.7 GB
+sort_by_length: true           # group each update's pairs by length: same pairs and loss, less padding
+                               # (identical in fp32, bf16 rounding only)
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+sft_lr: 1.0e-5
+sft_epochs: 1
+
+# All arms at three seeds, except the substitution arm (barp_pooled_gender_only), which is
+# reported at seed 42.
+methods:
+  reference: {}
+  dpo: {}
+  barp_pooled: {n_bias_params: 1}
+  barp_annotator_mean: {n_bias_params: per_annotator, shared_mean: true}
+  barp_class_mean: {n_bias_params: per_annotator, shared_mean: true, class_level: true}
+  barp_shuffled: {n_bias_params: per_annotator, shuffle_annotator_ids: true}
+  group_dro_dpo: {n_groups: per_class, eta: 0.5}
+  rdpo_a005: {alpha: 0.005}
+  sampo: {}
+  barp_pooled_gender_only: {n_bias_params: 1, declared_attributes: [woman_coded]}
+  # EM-DPO + MinMax-DPO (Chidambaram et al. 2024): the latent-type heterogeneity baseline.
+  # K = 3 is the planted number of classes; 4 EM rounds of 200 steps, then the final type policies
+  # train on all votes for the full steps (src/methods/em_dpo.py).
+  em_minmax_dpo: {n_types: 3, em_rounds: 4, round_steps: 200, em_init: agreement}   # E-step on held-out halves; start from agreement clusters

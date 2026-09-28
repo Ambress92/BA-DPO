@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: "BA-DPO: Bias-Adjusted Direct Preference Optimization for Language Model Alignment"
+abstract: "Code for BA-DPO, a generalization of DPO that gives each annotator a bias parameter on a declared attribute of the responses."
+authors:
+  - family-names: Ferrara
+    given-names: Antonio
+    affiliation: "Intesa Sanpaolo AI Research"
+  - family-names: Rumi
+    given-names: Alberto
+    affiliation: "Intesa Sanpaolo AI Research"
+  - family-names: Bonchi
+    given-names: Francesco
+    affiliation: "Intesa Sanpaolo AI Research"
+license: CC-BY-4.0
+preferred-citation:
+  type: article
+  title: "BA-DPO: Bias-Adjusted Direct Preference Optimization for Language Model Alignment"
+  authors:
+    - family-names: Ferrara
+      given-names: Antonio
+    - family-names: Rumi
+      given-names: Alberto
+    - family-names: Bonchi
+      given-names: Francesco
+  year: 2026
+  journal: "arXiv preprint arXiv:XXXX.XXXXX"

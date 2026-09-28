@@ -1,0 +1,62 @@
+# CPU smoke test for the names corpus: vector attribute, annotator classes, matrix theta,
+# class-level arms, declared-attribute subset, choice prompts. Toy scale; never cite numbers.
+experiment_name: smoke_names
+output_dir: experiments/smoke_names
+datasets: [names]
+data_dir_name: names_smoke
+attribute: names
+seeds: [42]
+data_seed: 0
+n_pairs: 60
+annotators_per_class: 2
+theta_sigma: 0.3
+classes:
+  - {name: A, mean: [1.0, 1.2]}
+  - {name: B, mean: [1.0, -1.2]}
+  - {name: C, mean: [1.0, 0.0]}
+pair_mix: {quality: 0.4, swap: 0.2, mixed: 0.4}
+quality_unsigned_frac: 0.5
+judgments_per_pair: 2
+quality_scale: 0.5
+heldout_prompt_frac: 0.2
+n_eval_prompts: 4
+n_choice_prompts: 2
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 24
+beta: 0.1
+lr: 5.0e-7
+steps: 3
+batch_size: 2
+grad_accum: 2
+max_length: 256
+max_prompt_length: 64
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2
+theta_penalty_lambda: 0.0
+ref_batch_size: 2
+gen_batch_size: 2
+gen_max_new_tokens: 24
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 512
+judge_batch_size: 2
+sft_lr: 1.0e-5
+sft_epochs: 1
+
+methods:
+  reference: {}
+  dpo: {}
+  barp_pooled: {n_bias_params: 1}
+  barp_class: {n_bias_params: per_class}
+  barp_annotator_mean: {n_bias_params: per_annotator, shared_mean: true}
+  barp_class_mean: {n_bias_params: per_annotator, shared_mean: true, class_level: true}
+  barp_pooled_gender_only: {n_bias_params: 1, declared_attributes: [woman_coded]}
+  barp_pooled_warm: {n_bias_params: 1, theta_init: offline}
+  rdpo: {alpha: 0.005}
+  group_dro_dpo: {n_groups: per_class, eta: 0.5}
+  sampo: {}

@@ -1,0 +1,43 @@
+experiment_name: multipref_heterogeneity_baselines
+output_dir: experiments/multipref             # same dir as multipref.yaml, so these rows land
+                                               # next to dpo and share its reference
+datasets: [multipref]
+attribute: length                             # same headline attribute as the main table
+length_ratio: 1.5
+seeds: [42, 123, 456]
+
+hf_dataset: allenai/multipref
+heldout_prompt_frac: 0.1
+n_eval_prompts: 300
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 24
+beta: 0.1
+lr: 5.0e-7
+steps: 1000
+gradient_checkpointing: false  # identical gradients either way; steps 19-41% faster,
+                               # peak memory about 19 GB instead of 10.7 GB
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+
+sft_lr: 1.0e-5
+sft_epochs: 1
+
+# Heterogeneity-branch baselines: annotator-group loss reweighting, no bias parameter,
+# no use of g_chosen/g_rejected. Contrasted against dpo and the BARP arms
+# on the same data. eta=0.5 is the exponentiated-weight step size (untuned default).
+methods:
+  group_dro_dpo: {n_groups: per_annotator, eta: 0.5}
+  crowd_prefrl: {n_groups: per_annotator, eta: 0.5}

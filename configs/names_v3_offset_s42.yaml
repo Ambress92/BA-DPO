@@ -1,0 +1,69 @@
+# DPO with a fairness offset: the biased DPO policy of
+# names_v3 at seed 42 is the reference of this stage and the model whose own generations give the
+# counterfactual pairs. Before any queue: link the reference (scripts/setup/link_offset_reference.py)
+# and build the data (experiment_multipref.py generate).
+experiment_name: names_v3_offset_s42
+output_dir: experiments/names_v3_offset_s42
+datasets: [names_selfpairs]
+data_dir_name: names_v3_selfpairs_s42
+attribute: names
+seeds: [42]                    # the source seed; one config per source seed
+source_checkpoint: experiments/names_v3/dpo/seed42/model
+source_data: names_v3          # eval prompts and meta fields copied from data/names_v3
+reference_name: names_v3_offset_s42
+n_pairs: 8000                  # fresh prompts start after the 8,000 that names_v3 drew
+n_self_prompts: 3000
+data_seed: 0
+n_eval_prompts: 300
+n_choice_prompts: 100
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 14         # checkpointing on: peak about 13 GB
+beta: 0.1
+lr: 5.0e-7
+steps: 1000
+gradient_checkpointing: true   # same gradients, lower peak memory
+sort_by_length: true
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2               # unused: the offset is fixed
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+sft_lr: 1.0e-5                 # unused: the reference is linked, not trained
+sft_epochs: 1
+
+# Offsets b = -beta * s*, with s* the log-odds shift that brings the source policy's probability
+# readout (rates 0.964 / 0.992, the reference's bodies, 300 sign prompts) to the target, found by
+# bisection (scripts/analysis/offset_readouts.py; the formula beta * (logit p - logit t)
+# undershoots because the log-odds vary across prompts). Per attribute [woman_coded, black_coded].
+# Parity first; if the achieved rate is off the target by more than 0.02, correct the offset by
+# beta * (logit p1 - logit t) and rerun once, then the two other targets.
+methods:
+  reference: {}
+  fair_offset: {offset: [0.339, 0.506]}          # t = 0.5
+  # Calibration reruns: the parity run reached 0.736 / 0.753 (target 0.50) in 1,000 steps,
+  # two thirds of the intended log-odds shift. Two corrections: additive, the
+  # pre-registered rule b + beta * (logit p1 - logit t) = 0.339 + 0.103, 0.506 + 0.112; and
+  # proportional, b * intended shift / achieved shift = 0.339 * 3.39 / 2.24, 0.506 * 5.06 / 3.70.
+  fair_offset_cal_add: {offset: [0.442, 0.618]}
+  fair_offset_cal_mul: {offset: [0.513, 0.692]}
+  fair_offset_t30: {offset: [0.426, 0.594]}      # t = 0.3, exact tilt only (not run)
+  fair_offset_t70: {offset: [0.251, 0.417]}      # t = 0.7, exact tilt only (not run)
+  # Result of the calibration (probability readout): parity 0.736 / 0.753, additive
+  # 0.533 / 0.509, proportional 0.372 / 0.329. The achieved log-odds shift is linear in the
+  # intended one: gender 0.888 * intended - 0.777, race 0.980 * intended - 1.285 (residuals
+  # below 0.02). The fitted arms invert this line: offset = beta * (needed + c) / m, with
+  # needed the exact tilt of the target (the t30 / t70 values above divided by beta).
+  fair_offset_fit_t30: {offset: [0.567, 0.737]}  # t = 0.3, fitted line
+  fair_offset_fit_t70: {offset: [0.370, 0.556]}  # t = 0.7, fitted line

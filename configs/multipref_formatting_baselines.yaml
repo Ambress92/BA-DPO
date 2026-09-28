@@ -1,0 +1,56 @@
+experiment_name: multipref_formatting_baselines
+output_dir: experiments/multipref_formatting
+data_dir_name: multipref_formatting          # separate data build: g_chosen/g_rejected computed
+                                              # by the formatting attribute, not length
+datasets: [multipref]
+attribute: formatting
+seeds: [42, 123, 456]
+
+hf_dataset: allenai/multipref
+heldout_prompt_frac: 0.1
+n_eval_prompts: 300
+data_seed: 0                                 # same split as multipref.yaml: same prompts held out
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+lora_r: 16
+lora_alpha: 32
+lora_target: all-linear
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 10          # evaluation only, runs next to a training job
+beta: 0.1
+lr: 5.0e-7
+steps: 1000
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+
+theta_lr: 1.0e-2
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+
+sft_lr: 1.0e-5
+sft_epochs: 1
+
+# Evaluation-only pass: the length-trained baselines and dpo scored under the
+# formatting attribute. None of these arms reads the attribute while training (R-DPO uses
+# word counts, SamPO drops tokens, DPO nothing), so the checkpoints trained under
+# configs/multipref.yaml ARE the formatting checkpoints; only the readouts change. The
+# checkpoint dirs are symlinked from experiments/multipref (scripts/setup/link_multipref_formatting.sh)
+# and the `evaluate` stage is run, never `run`. Generations are cached, so the cost is the
+# judge on markdown-stripped text, the held-out split by formatting, and the KL readout.
+# Tests the bias-substitution question (Lamparth et al. 2026): does a length penalty leave
+# markdown alone, reduce it as a side effect, or push pressure onto it?
+methods:
+  dpo: {}
+  rdpo: {alpha: 0.02}
+  rdpo_a005: {alpha: 0.005}
+  sampo: {}

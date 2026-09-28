@@ -1,0 +1,62 @@
+# LoRA calibration on the 0.5B model, on Signed-UltraFeedback (names_v3). Same data and
+# same fair-start reference as names_v3 (reused through data_dir_name), policy = reference +
+# LoRA adapters. Question: does DPO
+# with LoRA amplify the planted bias as much as full fine-tuning (p(woman) 0.50 -> 0.96), and
+# does pooled BA-DPO remove as much? Learning rate 5e-6, one seed.
+experiment_name: names_v3_lora_lr5e-6
+output_dir: experiments/names_v3_lora_lr5e-6
+datasets: [names]
+data_dir_name: names_v3
+attribute: names
+seeds: [42]
+
+# Name pool, fair-start reference, annotators and votes: identical to configs/names_v3.yaml
+name_pool: v2
+sft_resign_random: true
+annotators_per_class: 20
+theta_sigma: 0.8
+classes:
+  - {name: A, mean: [1.2, 2.5]}
+  - {name: B, mean: [0.8, -0.5]}
+  - {name: C, mean: [1.0, 1.0]}
+pair_mix: {quality: 0.4, swap: 0.2, mixed: 0.4}
+quality_unsigned_frac: 0.5
+judgments_per_pair: 4
+n_pairs: 8000
+quality_scale: 0.5
+data_seed: 0
+n_eval_prompts: 300
+n_choice_prompts: 100
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_target: all-linear
+precision: bf16_base_fp32_adapters
+gpu_memory_cap_gb: 12
+beta: 0.1
+lr: 5.0e-6
+steps: 1000
+batch_size: 2
+grad_accum: 16
+sort_by_length: true           # as in names_v3 and the 8B configs (bf16 rounding only)
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+sft_lr: 1.0e-5
+sft_epochs: 1
+
+methods:
+  reference: {}
+  dpo: {}
+  barp_pooled: {n_bias_params: 1}

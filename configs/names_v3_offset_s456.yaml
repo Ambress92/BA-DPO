@@ -1,0 +1,59 @@
+# DPO with a fairness offset: the biased DPO policy of
+# names_v3 at seed 456 is the reference of this stage and the model whose own generations give the
+# counterfactual pairs. Before any queue: link the reference (scripts/setup/link_offset_reference.py)
+# and build the data (experiment_multipref.py generate).
+experiment_name: names_v3_offset_s456
+output_dir: experiments/names_v3_offset_s456
+datasets: [names_selfpairs]
+data_dir_name: names_v3_selfpairs_s456
+attribute: names
+seeds: [456]                    # the source seed; one config per source seed
+source_checkpoint: experiments/names_v3/dpo/seed456/model
+source_data: names_v3          # eval prompts and meta fields copied from data/names_v3
+reference_name: names_v3_offset_s456
+n_pairs: 8000                  # fresh prompts start after the 8,000 that names_v3 drew
+n_self_prompts: 3000
+data_seed: 0
+n_eval_prompts: 300
+n_choice_prompts: 100
+
+model: Qwen/Qwen2.5-0.5B-Instruct
+adapter: none
+precision: fp32_master_bf16_autocast
+gpu_memory_cap_gb: 14         # checkpointing on: peak about 13 GB
+beta: 0.1
+lr: 5.0e-7
+steps: 1000
+gradient_checkpointing: true   # same gradients, lower peak memory
+sort_by_length: true
+batch_size: 2
+grad_accum: 16
+max_length: 1280
+max_prompt_length: 384
+schedule: cosine
+warmup_frac: 0.1
+theta_lr: 1.0e-2               # unused: the offset is fixed
+theta_penalty_lambda: 0.0
+
+gen_max_new_tokens: 512
+gen_temperature: 0.7
+gen_top_p: 0.9
+judge: Skywork/Skywork-Reward-V2-Qwen3-1.7B
+judge_max_length: 2048
+sft_lr: 1.0e-5                 # unused: the reference is linked, not trained
+sft_epochs: 1
+
+# Offsets b = -beta * s*, with s* the log-odds shift that brings the source policy's probability
+# readout (rates 0.962 / 0.990, the reference's bodies, 300 sign prompts) to the target, found by
+# bisection (scripts/analysis/offset_readouts.py; the formula beta * (logit p - logit t)
+# undershoots because the log-odds vary across prompts). Per attribute [woman_coded, black_coded].
+# Parity first; if the achieved rate is off the target by more than 0.02, correct the offset by
+# beta * (logit p1 - logit t) and rerun once, then the two other targets.
+methods:
+  reference: {}
+  fair_offset: {offset: [0.333, 0.490]}          # t = 0.5
+  fair_offset_t30: {offset: [0.420, 0.577]}      # t = 0.3
+  fair_offset_t70: {offset: [0.246, 0.401]}      # t = 0.7
+  # Parity with the response line fitted at seed 42 (see names_v3_offset_s42.yaml); this seed
+  # never ran with the exact tilt alone, so it is the out-of-sample test of the rule.
+  fair_offset_fit: {offset: [0.462, 0.631]}      # t = 0.5, fitted line
