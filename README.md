@@ -2,7 +2,7 @@
 
 Code for the paper *BA-DPO: Bias-Adjusted Direct Preference Optimization for Language Model
 Alignment*, by Antonio Ferrara, Alberto Rumi and Francesco Bonchi (Intesa Sanpaolo AI
-Research): https://arxiv.org/abs/XXXX.XXXXX
+Research): https://arxiv.org/abs/2609.35044
 
 It trains and evaluates every arm in the paper through one pipeline: the same data, the same
 training loop and the same evaluation, with only the loss changing from arm to arm.
@@ -196,7 +196,7 @@ experiments/        checkpoints, generations and results.jsonl (created by runs)
 @article{ferrara2026badpo,
   title   = {BA-DPO: Bias-Adjusted Direct Preference Optimization for Language Model Alignment},
   author  = {Ferrara, Antonio and Rumi, Alberto and Bonchi, Francesco},
-  journal = {arXiv preprint arXiv:XXXX.XXXXX},
+  journal = {arXiv preprint arXiv:2609.35044},
   year    = {2026},
 }
 ```

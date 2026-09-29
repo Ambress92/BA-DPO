@@ -24,4 +24,6 @@ preferred-citation:
     - family-names: Bonchi
       given-names: Francesco
   year: 2026
-  journal: "arXiv preprint arXiv:XXXX.XXXXX"
+  journal: "arXiv preprint arXiv:2609.35044"
+  doi: "10.48550/arXiv.2609.35044"
+  url: "https://arxiv.org/abs/2609.35044"
